@@ -10,7 +10,9 @@ import Image from "next/image";
 import { CuacaProps } from "../../types";
 
 const AnalisisCuacaCarausel = () => {
-  const [cuacaDalam3Hari, setCuacaDalam3Hari] = useState<CuacaProps | null>(null);
+  const [cuacaDalam3Hari, setCuacaDalam3Hari] = useState<CuacaProps | null>(
+    null
+  );
 
   useEffect(() => {
     const fetchData = async () => {
@@ -30,22 +32,29 @@ const AnalisisCuacaCarausel = () => {
 
   const now = new Date();
 
-// helper cek apakah item ini "Sekarang"
-const isNowTime = (localDatetime: string, now: Date) => {
-  const itemDate = new Date(localDatetime); // langsung parse full datetime dari API
+  // fungsi parse manual agar tidak salah timezone
+  const parseLocalDatetime = (localDatetime: string) => {
+    const [datePart, timePart] = localDatetime.split(" ");
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute, second] = timePart.split(":").map(Number);
+    return new Date(year, month - 1, day, hour, minute, second);
+  };
 
-  // pastikan tanggal sama
-  const sameDate =
-    itemDate.getFullYear() === now.getFullYear() &&
-    itemDate.getMonth() === now.getMonth() &&
-    itemDate.getDate() === now.getDate();
+  // helper cek apakah item ini "Sekarang"
+  const isNowTime = (
+    localDatetime: string,
+    nextDatetime: string | null,
+    now: Date
+  ) => {
+    const start = parseLocalDatetime(localDatetime);
+    const end = nextDatetime ? parseLocalDatetime(nextDatetime) : null;
 
-  if (!sameDate) return false;
-
-  // cek selisih menit
-  const diffMinutes = Math.abs((now.getTime() - itemDate.getTime()) / (1000 * 60));
-  return diffMinutes <= 30; // threshold 30 menit
-};
+    if (end) {
+      return now >= start && now < end; // dalam interval slot
+    } else {
+      return now >= start; // kalau slot terakhir
+    }
+  };
 
   if (!cuacaDalam3Hari) {
     return <div>Loading data cuaca...</div>;
@@ -65,13 +74,19 @@ const isNowTime = (localDatetime: string, now: Date) => {
                       const timeStr = item.local_datetime
                         .split(" ")[1]
                         .slice(0, 5);
+                      const nextItem = hari[index + 1] || null;
+
                       return (
                         <div
-                          className="grid grid-cols-4 my-2 w-full"
+                          className="grid grid-cols-4 my-2 w-full items-center"
                           key={index}
                         >
                           <h5>
-                            {isNowTime(item.local_datetime, now)
+                            {isNowTime(
+                              item.local_datetime,
+                              nextItem?.local_datetime || null,
+                              now
+                            )
                               ? "Sekarang"
                               : timeStr}
                           </h5>
@@ -82,9 +97,8 @@ const isNowTime = (localDatetime: string, now: Date) => {
                             alt={item.weather_desc}
                             width={35}
                             height={35}
-                            className="ml-12"
+                            className="mx-auto"
                           />
-                          
                         </div>
                       );
                     })}
